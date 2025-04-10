@@ -176,3 +176,6 @@ ManiSkill/
 nautilus/
 
 .DS_Store
+
+*.mp4
+*.png
