@@ -29,7 +29,7 @@ from mshab.utils.logger import Logger, LoggerConfig
 from mshab.utils.time import NonOverlappingTimeProfiler
 
 
-NUM_ENVS = 1
+NUM_ENVS = 50
 SEED = 2024
 MAX_TRAJECTORIES = 1000
 
@@ -125,7 +125,7 @@ def eval(
         ),
     )
     logger_cfg = LoggerConfig(
-        workspace="mshab_exps",
+        workspace="mshab_data",
         exp_name=(
             (
                 f"gen_data_save_trajectories/{task}/{subtask}/{split}/{obj_name}"

@@ -329,13 +329,10 @@ class RecordEpisode(gym.Wrapper):
                     )
 
         obs, info = super().reset(*args, seed=seed, options=options, **kwargs)
-        obs_to_save = {
-            "pointcloud": None,
-            "images": {},
-        }
-        obs_to_save['pointcloud'] = obs['pointcloud'] # (num_envs, 1024, 6)
-        obs_to_save['images']['fetch_head'] = obs['sensor_data']['fetch_head']['rgb'] # (num_envs, 128, 128, 3)
-        obs_to_save['images']['fetch_hand'] = obs['sensor_data']['fetch_hand']['rgb']
+        obs_to_save = copy.deepcopy(obs)
+        obs_to_save['extra']['base_linear_vel'] = self.env.agent.base_link.linear_velocity
+        obs_to_save['extra']['base_angular_vel'] = self.env.agent.base_link.angular_velocity
+        # recursive_print_dict(obs_to_save)
         self._first_step_info = info
         if info["reconfigure"]:
             # if we reconfigure, there is the possibility that state dictionary looks different now
@@ -425,14 +422,10 @@ class RecordEpisode(gym.Wrapper):
             self.render_images.append(self.capture_image(self._first_step_info))
             self._first_step_info = None
         obs, rew, terminated, truncated, info = super().step(action)
-        obs_to_save = {
-            "pointcloud": None,
-            "images": {},
-        }
-        obs_to_save['pointcloud'] = obs['pointcloud'] # (1, 1024, 6)
-        obs_to_save['images']['fetch_head'] = obs['sensor_data']['fetch_head']['rgb'] # (1, 128, 128, 3)
-        obs_to_save['images']['fetch_hand'] = obs['sensor_data']['fetch_hand']['rgb']
-        
+        obs_to_save = copy.deepcopy(obs)
+        obs_to_save['extra']['base_linear_vel'] = self.env.agent.base_link.linear_velocity
+        obs_to_save['extra']['base_angular_vel'] = self.env.agent.base_link.angular_velocity
+
         if self.save_trajectory:
             state_dict = self.base_env.get_state_dict()
             if self.record_env_state:
@@ -622,7 +615,23 @@ class RecordEpisode(gym.Wrapper):
                         for k in data.keys():
                             recursive_add_to_h5py(subgrp, data[k], k)
                     else:
-                        if key in ['pointcloud', 'fetch_head', 'fetch_hand']:
+                        if key == "rgb":
+                            group.create_dataset(
+                                "rgb",
+                                data=data[start_ptr:end_ptr, env_idx],
+                                dtype=data.dtype,
+                                compression="gzip",
+                                compression_opts=5,
+                            )
+                        elif key == "depth":
+                            group.create_dataset(
+                                key,
+                                data=data[start_ptr:end_ptr, env_idx],
+                                dtype=data.dtype,
+                                compression="gzip",
+                                compression_opts=5,
+                            )
+                        elif key == "seg":
                             group.create_dataset(
                                 key,
                                 data=data[start_ptr:end_ptr, env_idx],
