@@ -2,7 +2,7 @@
 
 task="set_table"
 subtask="pick"
-obj_name="013_apple"
+obj_name="024_bowl"
 
 if [[ ! -e "mshab_exps/gen_data_save_trajectories/$task/$subtask/train/$obj_name" && $obj_name != "all" ]]; then
     python -m mshab.utils.gen.gen_data "$task" "$subtask" "$obj_name"

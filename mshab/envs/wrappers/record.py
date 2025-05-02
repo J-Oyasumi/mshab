@@ -27,8 +27,8 @@ from mshab.envs import (
 from mshab.utils.io import NoIndent, NoIndentSupportingJSONEncoder
 from mshab.utils.label_dataset import get_episode_label_and_events
 from mshab.utils.video import put_info_on_image
-from mshab.utils.debug import recursive_print_dict
-from PIL import Image
+
+
 def parse_env_info(env: gym.Env):
     # spec can be None if not initialized from gymnasium.make
     env = env.unwrapped
@@ -329,13 +329,6 @@ class RecordEpisode(gym.Wrapper):
                     )
 
         obs, info = super().reset(*args, seed=seed, options=options, **kwargs)
-        obs_to_save = {
-            "pointcloud": None,
-            "images": {},
-        }
-        obs_to_save['pointcloud'] = obs['pointcloud'] # (num_envs, 1024, 6)
-        obs_to_save['images']['fetch_head'] = obs['sensor_data']['fetch_head']['rgb'] # (num_envs, 128, 128, 3)
-        obs_to_save['images']['fetch_hand'] = obs['sensor_data']['fetch_hand']['rgb']
         self._first_step_info = info
         if info["reconfigure"]:
             # if we reconfigure, there is the possibility that state dictionary looks different now
@@ -346,10 +339,9 @@ class RecordEpisode(gym.Wrapper):
             action = common.batch(self.single_action_space.sample())
             first_step_info = info.copy()
             first_step_info.pop("reconfigure")
-            # recursive_print_dict(common.to_numpy(common.batch(obs_to_save)))
             first_step = Step(
                 state=common.to_numpy(common.batch(state_dict)),
-                observation=common.to_numpy(common.batch(obs_to_save)),
+                observation=common.to_numpy(common.batch(obs)),
                 info=common.to_numpy(common.batch(first_step_info)),
                 # note first reward/action etc. are ignored when saving trajectories to disk
                 action=common.to_numpy(common.batch(action.repeat(self.num_envs, 0))),
@@ -388,9 +380,6 @@ class RecordEpisode(gym.Wrapper):
 
                 if self.record_env_state:
                     recursive_replace(self._trajectory_buffer.state, first_step.state)
-
-                # recursive_print_dict(self._trajectory_buffer.observation)
-                # recursive_print_dict(first_step.observation)
                 recursive_replace(
                     self._trajectory_buffer.observation, first_step.observation
                 )
@@ -425,14 +414,7 @@ class RecordEpisode(gym.Wrapper):
             self.render_images.append(self.capture_image(self._first_step_info))
             self._first_step_info = None
         obs, rew, terminated, truncated, info = super().step(action)
-        obs_to_save = {
-            "pointcloud": None,
-            "images": {},
-        }
-        obs_to_save['pointcloud'] = obs['pointcloud'] # (1, 1024, 6)
-        obs_to_save['images']['fetch_head'] = obs['sensor_data']['fetch_head']['rgb'] # (1, 128, 128, 3)
-        obs_to_save['images']['fetch_hand'] = obs['sensor_data']['fetch_hand']['rgb']
-        
+
         if self.save_trajectory:
             state_dict = self.base_env.get_state_dict()
             if self.record_env_state:
@@ -442,7 +424,7 @@ class RecordEpisode(gym.Wrapper):
                 )
             self._trajectory_buffer.observation = common.append_dict_array(
                 self._trajectory_buffer.observation,
-                common.to_numpy(common.batch(obs_to_save)),
+                common.to_numpy(common.batch(obs)),
             )
             self._trajectory_buffer.info = common.append_dict_array(
                 self._trajectory_buffer.info,
@@ -509,7 +491,7 @@ class RecordEpisode(gym.Wrapper):
 
     def flush_trajectory(
         self,
-        verbose=True,
+        verbose=False,
         ignore_empty_transition=True,
         env_idxs_to_flush=None,
         save: bool = True,
@@ -622,7 +604,23 @@ class RecordEpisode(gym.Wrapper):
                         for k in data.keys():
                             recursive_add_to_h5py(subgrp, data[k], k)
                     else:
-                        if key in ['pointcloud', 'fetch_head', 'fetch_hand']:
+                        if key == "rgb":
+                            group.create_dataset(
+                                "rgb",
+                                data=data[start_ptr:end_ptr, env_idx],
+                                dtype=data.dtype,
+                                compression="gzip",
+                                compression_opts=5,
+                            )
+                        elif key == "depth":
+                            group.create_dataset(
+                                key,
+                                data=data[start_ptr:end_ptr, env_idx],
+                                dtype=data.dtype,
+                                compression="gzip",
+                                compression_opts=5,
+                            )
+                        elif key == "seg":
                             group.create_dataset(
                                 key,
                                 data=data[start_ptr:end_ptr, env_idx],
