@@ -1423,7 +1423,7 @@ class SequentialTaskEnv(SceneManipulationEnv):
 
         base_angular_vel = self.agent.base_link.get_angular_velocity()
         base_linear_vel = self.agent.base_link.get_linear_velocity()
-
+        base_pose = self.agent.base_link.pose.p
         return dict(
             tcp_pose_wrt_base=tcp_pose_wrt_base,
             obj_pose_wrt_base=obj_pose_wrt_base,
@@ -1431,6 +1431,7 @@ class SequentialTaskEnv(SceneManipulationEnv):
             is_grasped=is_grasped,
             base_angular_vel=base_angular_vel,
             base_linear_vel=base_linear_vel,
+            base_pose=base_pose,
         )
 
     # -------------------------------------------------------------------------------------------------

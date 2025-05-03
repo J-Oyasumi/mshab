@@ -176,7 +176,7 @@ def eval(
         ]
 
     def obs_wrap_func(obs):
-        obs["state"] = obs["state"][:, :-6]
+        obs["state"] = obs["state"][:, :-9]
         return obs
 
     eval_envs = make_env(
@@ -267,7 +267,7 @@ def eval(
             policy.load_state_dict(torch.load(ckpt_path, map_location=device)["agent"])
             policy_act_fn = lambda obs: policy.actor(
                 obs["pixels"],
-                obs["state"][:, :-6],
+                obs["state"][:, :-9],
                 compute_pi=False,
                 compute_log_pi=False,
             )[0]
