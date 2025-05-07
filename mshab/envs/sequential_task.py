@@ -674,6 +674,7 @@ class SequentialTaskEnv(SceneManipulationEnv):
 
             if env_idx.numel() == self.num_envs:
                 self.task_plan_idxs: torch.Tensor = options.get("task_plan_idxs", None)
+            
             if self.task_plan_idxs is None or env_idx.numel() < self.num_envs:
                 if self.task_plan_idxs is None:
                     self.task_plan_idxs = torch.zeros(self.num_envs, dtype=torch.int)
@@ -684,15 +685,18 @@ class SequentialTaskEnv(SceneManipulationEnv):
                     torch.randint(2**63 - 1, size=size) % (high - low).int() + low.int()
                 ).int()
             else:
-                self.task_plan_idxs = self.task_plan_idxs.int()
+                self.task_plan_idxs = torch.tensor(self.task_plan_idxs).int()
+                
             sampled_task_plans = [
                 self.build_config_idx_to_task_plans[bci][tpi]
                 for bci, tpi in zip(self.build_config_idxs, self.task_plan_idxs)
             ]
+                    
             self.init_config_idxs = [
                 self.scene_builder.init_config_names_to_idxs[tp.init_config_name]
                 for tp in sampled_task_plans
             ]
+                
             super()._initialize_episode(env_idx, options)
             self.process_task_plan(
                 env_idx,
@@ -1417,11 +1421,17 @@ class SequentialTaskEnv(SceneManipulationEnv):
         #       - is_grasped    :   part of success criteria (or set default)
         is_grasped = info["is_grasped"]
 
+        base_angular_vel = self.agent.base_link.get_angular_velocity()
+        base_linear_vel = self.agent.base_link.get_linear_velocity()
+        base_pose = self.agent.base_link.pose.p
         return dict(
             tcp_pose_wrt_base=tcp_pose_wrt_base,
             obj_pose_wrt_base=obj_pose_wrt_base,
             goal_pos_wrt_base=goal_pos_wrt_base,
             is_grasped=is_grasped,
+            base_angular_vel=base_angular_vel,
+            base_linear_vel=base_linear_vel,
+            base_pose=base_pose,
         )
 
     # -------------------------------------------------------------------------------------------------

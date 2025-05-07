@@ -27,8 +27,8 @@ from mshab.envs import (
 from mshab.utils.io import NoIndent, NoIndentSupportingJSONEncoder
 from mshab.utils.label_dataset import get_episode_label_and_events
 from mshab.utils.video import put_info_on_image
-from mshab.utils.debug import recursive_print_dict
-from PIL import Image
+
+
 def parse_env_info(env: gym.Env):
     # spec can be None if not initialized from gymnasium.make
     env = env.unwrapped
@@ -329,10 +329,6 @@ class RecordEpisode(gym.Wrapper):
                     )
 
         obs, info = super().reset(*args, seed=seed, options=options, **kwargs)
-        obs_to_save = copy.deepcopy(obs)
-        obs_to_save['extra']['base_linear_vel'] = self.env.agent.base_link.linear_velocity
-        obs_to_save['extra']['base_angular_vel'] = self.env.agent.base_link.angular_velocity
-        # recursive_print_dict(obs_to_save)
         self._first_step_info = info
         if info["reconfigure"]:
             # if we reconfigure, there is the possibility that state dictionary looks different now
@@ -343,10 +339,9 @@ class RecordEpisode(gym.Wrapper):
             action = common.batch(self.single_action_space.sample())
             first_step_info = info.copy()
             first_step_info.pop("reconfigure")
-            # recursive_print_dict(common.to_numpy(common.batch(obs_to_save)))
             first_step = Step(
                 state=common.to_numpy(common.batch(state_dict)),
-                observation=common.to_numpy(common.batch(obs_to_save)),
+                observation=common.to_numpy(common.batch(obs)),
                 info=common.to_numpy(common.batch(first_step_info)),
                 # note first reward/action etc. are ignored when saving trajectories to disk
                 action=common.to_numpy(common.batch(action.repeat(self.num_envs, 0))),
@@ -385,9 +380,6 @@ class RecordEpisode(gym.Wrapper):
 
                 if self.record_env_state:
                     recursive_replace(self._trajectory_buffer.state, first_step.state)
-
-                # recursive_print_dict(self._trajectory_buffer.observation)
-                # recursive_print_dict(first_step.observation)
                 recursive_replace(
                     self._trajectory_buffer.observation, first_step.observation
                 )
@@ -422,9 +414,6 @@ class RecordEpisode(gym.Wrapper):
             self.render_images.append(self.capture_image(self._first_step_info))
             self._first_step_info = None
         obs, rew, terminated, truncated, info = super().step(action)
-        obs_to_save = copy.deepcopy(obs)
-        obs_to_save['extra']['base_linear_vel'] = self.env.agent.base_link.linear_velocity
-        obs_to_save['extra']['base_angular_vel'] = self.env.agent.base_link.angular_velocity
 
         if self.save_trajectory:
             state_dict = self.base_env.get_state_dict()
@@ -435,7 +424,7 @@ class RecordEpisode(gym.Wrapper):
                 )
             self._trajectory_buffer.observation = common.append_dict_array(
                 self._trajectory_buffer.observation,
-                common.to_numpy(common.batch(obs_to_save)),
+                common.to_numpy(common.batch(obs)),
             )
             self._trajectory_buffer.info = common.append_dict_array(
                 self._trajectory_buffer.info,
@@ -502,7 +491,7 @@ class RecordEpisode(gym.Wrapper):
 
     def flush_trajectory(
         self,
-        verbose=True,
+        verbose=False,
         ignore_empty_transition=True,
         env_idxs_to_flush=None,
         save: bool = True,

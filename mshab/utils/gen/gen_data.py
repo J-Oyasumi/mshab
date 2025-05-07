@@ -174,12 +174,18 @@ def eval(
                 max_trajectories=MAX_TRAJECTORIES,
             )
         ]
+
+    def obs_wrap_func(obs):
+        obs["state"] = obs["state"][:, :-9]
+        return obs
+
     eval_envs = make_env(
         env_cfg,
         video_path=logger.eval_video_path,
         wrappers=wrappers,
     )
     eval_obs, _ = eval_envs.reset()
+    eval_obs = obs_wrap_func(eval_obs)
 
     # -------------------------------------------------------------------------------------------------
     # SPACES
@@ -187,7 +193,12 @@ def eval(
 
     obs_space = eval_envs.unwrapped.single_observation_space
     pixels_obs_space: spaces.Dict = obs_space["pixels"]
-    state_obs_space: spaces.Box = obs_space["state"]
+    # state_obs_space: spaces.Box = obs_space["state"]
+    state_obs_space = spaces.Box(
+        low=-np.inf,
+        high=np.inf,
+        shape=(42,),
+    )
     act_space = eval_envs.unwrapped.single_action_space
     model_pixel_obs_space = dict()
     for k, space in pixels_obs_space.items():
@@ -231,7 +242,7 @@ def eval(
             policy.eval()
             policy.load_state_dict(torch.load(ckpt_path, map_location=device)["agent"])
             policy.to(device)
-            policy_act_fn = lambda obs: policy.get_action(obs, deterministic=True)
+            policy_act_fn = lambda obs: policy.get_action(obs_wrap_func(obs), deterministic=True)
         elif algo_cfg.name == "sac":
             policy = SACAgent(
                 model_pixel_obs_space,
@@ -256,7 +267,7 @@ def eval(
             policy.load_state_dict(torch.load(ckpt_path, map_location=device)["agent"])
             policy_act_fn = lambda obs: policy.actor(
                 obs["pixels"],
-                obs["state"],
+                obs["state"][:, :-9],
                 compute_pi=False,
                 compute_log_pi=False,
             )[0]
