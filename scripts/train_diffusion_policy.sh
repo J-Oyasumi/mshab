@@ -5,23 +5,23 @@ SEED=0
 TRAJS_PER_OBJ=all
 MAX_IMAGE_CACHE_SIZE=300_000   # safe num for about 64 GiB system memory
 num_dataload_workers=2
-num_iterations=1_000_000
+num_iterations=100_001
 
-TASK=tidy_house
-SUBTASK=pick
-SPLIT=train
-OBJ=all
+TASK=set_table
+SUBTASK=$1
+SPLIT=val
+OBJ=$2
 
 # shellcheck disable=SC2001
 ENV_ID="$(echo $SUBTASK | sed 's/\b\(.\)/\u\1/g')SubtaskTrain-v0"
-WORKSPACE="mshab_exps"
-GROUP=$TASK-rcad-dp-$SUBTASK
-EXP_NAME="$ENV_ID/$GROUP/dp-$SUBTASK-$OBJ-local-trajs_per_obj=$TRAJS_PER_OBJ"
+WORKSPACE="mshab_dp"
+GROUP=dp-$SUBTASK-$OBJ
+EXP_NAME="$SUBTASK-$OBJ"
 # shellcheck disable=SC2001
-PROJECT_NAME="MS-HAB-RCAD-dp"
+PROJECT_NAME="mshab-dp"
 
-WANDB=False
-TENSORBOARD=True
+WANDB=True
+TENSORBOARD=False
 if [[ -z "${MS_ASSET_DIR}" ]]; then
     MS_ASSET_DIR="$HOME/.maniskill"
 fi
@@ -29,11 +29,10 @@ fi
 RESUME_LOGDIR="$WORKSPACE/$EXP_NAME"
 RESUME_CONFIG="$RESUME_LOGDIR/config.yml"
 
-if [[ $SUBTASK == "open" || $SUBTASK == "close" ]]; then
-    data_dir_fp="$MS_ASSET_DIR/data/scene_datasets/replica_cad_dataset/rearrange-dataset/$TASK/$SUBTASK/$OBJ.h5"
-else
-    data_dir_fp="$MS_ASSET_DIR/data/scene_datasets/replica_cad_dataset/rearrange-dataset/$TASK/$SUBTASK"
-fi
+
+parent_dir="$NO_CROP_PATH/$SUBTASK/train/$OBJ"
+data_dir_fp=$(realpath "$parent_dir"/*.h5)
+
 
 args=(
     "logger.wandb_cfg.group=$GROUP"
@@ -48,11 +47,16 @@ args=(
     "algo.data_dir_fp=$data_dir_fp"
     "algo.max_image_cache_size=$MAX_IMAGE_CACHE_SIZE"
     "algo.num_dataload_workers=$num_dataload_workers"
+    "algo.truncate_trajectories_at_success=True"
+    "algo.obs_horizon=2"
+    "algo.act_horizon=2"
+    "algo.pred_horizon=4"
     "algo.eval_freq=5000"
     "algo.log_freq=1000"
-    "algo.save_freq=5000"
+    "algo.save_freq=10000"
+    "algo.save_backup_ckpts=True"
     "eval_env.make_env=True"
-    "eval_env.num_envs=252"
+    "eval_env.num_envs=126"
     "eval_env.max_episode_steps=200"
     "eval_env.record_video=False"
     "eval_env.info_on_video=False"

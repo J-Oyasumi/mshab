@@ -232,6 +232,8 @@ class DPDataset(ClosableDataset):  # Load everything into memory
                     x[:, None] if len(x.shape) == 1 else x for x in state_obs_list
                 ]
                 state_obs = torch.from_numpy(np.concatenate(state_obs_list, axis=1))
+                # remove the base angular vel, base linear vel and base pose since it is not needed in training 
+                state_obs = state_obs[:, :-9]
                 # don't cut off actions in case we are able to use in place of padding
                 act = torch.from_numpy(act)
 
@@ -510,6 +512,8 @@ if __name__ == "__main__":
 
     def store_env_stats(key):
         log_env = eval_envs
+        success_once=common.to_tensor(log_env.success_once_queue, device=device).float().mean()
+        cprint(f"Success Once: {success_once.item()}", "green")        
         logger.store(
             key,
             return_per_step=common.to_tensor(log_env.return_queue, device=device)
